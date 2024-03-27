@@ -80,7 +80,7 @@ void PobierzDaneZBazy(HWND hWndListView) {
     SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
 
     // Nawiązywanie połączenia
-    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=(localdb)\\MSSQLLocalDB;Database=Database1;";
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=(localdb)\\MSSQLLocalDB;Database=C:\\USERS\\KACPERCUDZIK\\SOURCE\\REPOS\\PRZYCHODNIA\\CLASSLIBRARY\\DATABASE1.MDF;";
     retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
 
     if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
@@ -218,7 +218,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
     hWndListView = CreateWindowExW(0, WC_LISTVIEWW, L"",
         WS_CHILD | WS_VISIBLE | LVS_REPORT,
-        0, 0, 640, 480, hWnd, (HMENU)IDC_MYLISTVIEW, hInstance, NULL);
+        0, 0,1200, 480, hWnd, (HMENU)IDC_MYLISTVIEW, hInstance, NULL);
 
     if (!hWndListView) {
         return FALSE;
@@ -228,40 +228,70 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     ZeroMemory(&lvColumn, sizeof(lvColumn));
     lvColumn.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
 
+    // Kolumna 0
+    wchar_t ID[] = L"ID";
+    lvColumn.pszText = ID;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListView, 0, &lvColumn);
+
     // Kolumna 1
     wchar_t imie[] = L"Imię";
     lvColumn.pszText = imie;
     lvColumn.cx = 100;
-    ListView_InsertColumn(hWndListView, 0, &lvColumn);
+    ListView_InsertColumn(hWndListView, 1, &lvColumn);
 
     // Kolumna 2
     wchar_t nazwisko[] = L"Nazwisko";
     lvColumn.pszText = nazwisko;
-    ListView_InsertColumn(hWndListView, 1, &lvColumn);
+    ListView_InsertColumn(hWndListView, 2, &lvColumn);
 
     // Kolumna 3
     wchar_t pesel[] = L"PESEL";
     lvColumn.pszText = pesel;
     lvColumn.cx = 100;
-    ListView_InsertColumn(hWndListView, 2, &lvColumn);
+    ListView_InsertColumn(hWndListView, 3, &lvColumn);
 
     // Kolumna 4
     wchar_t Data_urodzenia[] = L"Data urodzenia";
     lvColumn.pszText = Data_urodzenia;
     lvColumn.cx = 100;
-    ListView_InsertColumn(hWndListView, 3, &lvColumn);
+    ListView_InsertColumn(hWndListView, 4, &lvColumn);
 
     // Kolumna 5
     wchar_t Adres[] = L"Adres";
     lvColumn.pszText = Adres;
-    lvColumn.cx = 100;
-    ListView_InsertColumn(hWndListView, 4, &lvColumn);
+    lvColumn.cx = 200;
+    ListView_InsertColumn(hWndListView, 5, &lvColumn);
 
     // Kolumna 6
     wchar_t Mail[] = L"Mail";
     lvColumn.pszText = Mail;
     lvColumn.cx = 100;
-    ListView_InsertColumn(hWndListView, 5, &lvColumn);
+    ListView_InsertColumn(hWndListView, 6, &lvColumn);
+
+    // Kolumna 6
+    wchar_t Telefon[] = L"Telefon";
+    lvColumn.pszText = Telefon;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListView, 7, &lvColumn);
+
+    // Kolumna 6
+    wchar_t masa_ciała[] = L"Masa ciała";
+    lvColumn.pszText = masa_ciała;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListView, 8, &lvColumn);
+
+    // Kolumna 6
+    wchar_t wzrost[] = L"Wzrost";
+    lvColumn.pszText = wzrost;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListView, 9, &lvColumn);
+
+    // Kolumna 6
+    wchar_t Oddział_NFZ[] = L"Oddział NFZ";
+    lvColumn.pszText = Oddział_NFZ;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListView, 10, &lvColumn);
 
     HWND hBtnLoadData = CreateWindow(L"BUTTON", L"Wczytaj dane",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
