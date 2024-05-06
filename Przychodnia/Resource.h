@@ -16,6 +16,18 @@
 #define IDC_MYLISTVIEW 101
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
+#define IDD_ADD_PATIENT_DIALOG 101
+#define IDC_EDIT_NAME 103
+#define IDC_EDIT_SURNAME 104
+#define IDC_EDIT_PESEL 105
+#define IDC_EDIT_BIRTHDATE 106
+#define IDC_EDIT_ADDRESS 107
+#define IDC_EDIT_EMAIL 108
+#define IDC_EDIT_PHONE 109
+#define IDC_EDIT_WEIGHT 110
+#define IDC_EDIT_HEIGHT 111
+#define IDC_EDIT_NFZ 112
+
 #endif
 // Następne wartości domyślne dla nowych obiektów
 //

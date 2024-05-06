@@ -13,13 +13,19 @@
 #pragma comment(lib, "comctl32.lib")
 #define MAX_LOADSTRING 100
 #define IDC_LOAD_DATA_BUTTON 101
+#define IDC_ADD_PATIENT_BUTTON 102
+#define IDC_REMOVE_PATIENT_BUTTON 103
+#define IDC_ADD_DOCTOR_BUTTON 104
+#define IDC_REMOVE_DOCTOR_BUTTON 105
+#define IDD_ADD_PATIENT_DIALOG 101
 
 
 // Zmienne globalne:
 HWND hWndListView;
 HINSTANCE hInst;                                // bieżące wystąpienie
 WCHAR szTitle[MAX_LOADSTRING];                  // Tekst paska tytułu
-WCHAR szWindowClass[MAX_LOADSTRING];            // nazwa klasy okna głównego
+WCHAR szWindowClass[MAX_LOADSTRING];
+
 
 // Przekaż dalej deklaracje funkcji dołączone w tym module kodu:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -35,7 +41,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-    // TODO: W tym miejscu umieść kod.
+    
 
     // Inicjuj ciągi globalne
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -129,8 +135,63 @@ void PobierzDaneZBazy(HWND hWndListView) {
         if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
     }
 }
+// Procedura obsługi dialogu dodawania pacjenta
+INT_PTR CALLBACK AddPatientDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK)
+        {
+            wchar_t name[100], surname[100], pesel[100], birthdate[100], address[100],
+                email[100], phone[100], weight[100], height[100], nfz[100];
+            GetDlgItemText(hDlg, IDC_EDIT_NAME, name, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_SURNAME, surname, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_PESEL, pesel, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_BIRTHDATE, birthdate, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_ADDRESS, address, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_EMAIL, email, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_PHONE, phone, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_WEIGHT, weight, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_HEIGHT, height, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_NFZ, nfz, 100);
+
+            // Tu dodaj kod do zapisania danych pacjenta w bazie danych
+            // Przykład: INSERT INTO Patients (...) VALUES (...)
+
+            MessageBox(hDlg, L"Pacjent dodany!", L"Sukces", MB_OK);
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        else if (LOWORD(wParam) == IDCANCEL)
+        {
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
+void DodajPacjenta(HWND hWnd) {
+    // Dialogowe okno do wprowadzenia imienia i nazwiska
+    wchar_t imie[100];
+    wchar_t nazwisko[100];
+    wchar_t pesel[100];
+
+    if (DialogBox(hInst, MAKEINTRESOURCE(IDD_ADD_PATIENT_DIALOG), hWnd, AddPatientDialogProc)) {
+        MessageBox(hWnd, L"Pacjent dodany pomyślnie!", L"Info", MB_OK);
+    }
+}
 
 
+void UsunPacjenta(HWND hWnd) {
+    // Tutaj kawałek logiki do pobrania identyfikatora zaznaczonego pacjenta i jego usunięcia z bazy danych
+    MessageBox(hWnd, L"Pacjent usunięty!", L"Info", MB_OK);
+}
 void DodajElementDoListView(HWND hWndListView, int liczbaKolumn, SQLHSTMT hStmt) {
     LVITEM lvItem;
     wchar_t buforTekstu[256];
@@ -269,25 +330,25 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     lvColumn.cx = 100;
     ListView_InsertColumn(hWndListView, 6, &lvColumn);
 
-    // Kolumna 6
+    // Kolumna 7
     wchar_t Telefon[] = L"Telefon";
     lvColumn.pszText = Telefon;
     lvColumn.cx = 100;
     ListView_InsertColumn(hWndListView, 7, &lvColumn);
 
-    // Kolumna 6
+    // Kolumna 8
     wchar_t masa_ciała[] = L"Masa ciała";
     lvColumn.pszText = masa_ciała;
     lvColumn.cx = 100;
     ListView_InsertColumn(hWndListView, 8, &lvColumn);
 
-    // Kolumna 6
+    // Kolumna 9
     wchar_t wzrost[] = L"Wzrost";
     lvColumn.pszText = wzrost;
     lvColumn.cx = 100;
     ListView_InsertColumn(hWndListView, 9, &lvColumn);
 
-    // Kolumna 6
+    // Kolumna 10
     wchar_t Oddział_NFZ[] = L"Oddział NFZ";
     lvColumn.pszText = Oddział_NFZ;
     lvColumn.cx = 100;
@@ -297,8 +358,14 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
         10, 500, 125, 25,  
         hWnd, (HMENU)IDC_LOAD_DATA_BUTTON, hInstance, NULL);
-
-
+    HWND hBtnLoad = CreateWindow(L"BUTTON", L"Dodaj Pacjenta",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        255, 500, 125, 25,
+        hWnd, (HMENU)IDC_ADD_PATIENT_BUTTON, hInstance, NULL);
+    HWND hBtn = CreateWindow(L"BUTTON", L"Usuń Pacjenta",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        135, 500, 125, 25,
+        hWnd, (HMENU)IDC_REMOVE_PATIENT_BUTTON, hInstance, NULL);
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
 
@@ -323,9 +390,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         int wmId = LOWORD(wParam);
         switch (wmId)
-        {
+        {   
         case IDC_LOAD_DATA_BUTTON:
+            ListView_DeleteAllItems(hWndListView);
             PobierzDaneZBazy(hWndListView);
+            break;
+        case IDC_ADD_PATIENT_BUTTON:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_ADD_PATIENT_DIALOG), hWnd, AddPatientDialogProc);
+            break;
+        case IDC_REMOVE_PATIENT_BUTTON:
+            UsunPacjenta(hWnd);
             break;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
