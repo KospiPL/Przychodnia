@@ -135,6 +135,61 @@ void PobierzDaneZBazy(HWND hWndListView) {
         if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
     }
 }
+void InsertPatientData(HWND hDlg, const wchar_t* name, const wchar_t* surname, const wchar_t* pesel,
+    const wchar_t* birthdate, const wchar_t* address, const wchar_t* email,
+    const wchar_t* phone, const wchar_t* weight, const wchar_t* height, const wchar_t* nfz)
+{
+    SQLHENV hEnv = NULL;
+    SQLHDBC hDbc = NULL;
+    SQLHSTMT hStmt = NULL;
+    SQLRETURN retcode;
+
+    // Inicjalizacja środowiska ODBC
+    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+    SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+    // Alokuje uchwyt połączenia
+    SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+    wchar_t connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=(localdb)\\MSSQLLocalDB;Database=C:\\USERS\\KACPERCUDZIK\\SOURCE\\REPOS\\PRZYCHODNIA\\CLASSLIBRARY\\DATABASE1.MDF;";
+    retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+
+    if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+        // Alokuje uchwyt zapytania
+        SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+
+        wchar_t sqlQuery[1024];
+        swprintf_s(sqlQuery, 1024, L"INSERT INTO PACJENT (IMIE, NAZWISKO, PESEL, DATA_URODZENIA, Adres, mail, TELEFON, MASA_CIAŁA, WZROST, ODDZIAŁ_NFZ) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s');",
+            name, surname, pesel, birthdate, address, email, phone, weight, height, nfz);
+
+        // Wykonuje zapytanie SQL
+        retcode = SQLExecDirectW(hStmt, sqlQuery, SQL_NTS);
+
+        if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+            // Obsługa błędów zapytania
+            SQLWCHAR sqlState[1024];
+            SQLWCHAR messageText[1024];
+            SQLSMALLINT textLengthPtr;
+            SQLINTEGER nativeError;
+            SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, 1, sqlState, &nativeError, messageText, sizeof(messageText) / sizeof(WCHAR), &textLengthPtr);
+            MessageBox(hDlg, messageText, L"Błąd SQL", MB_OK | MB_ICONERROR);
+        }
+        else {
+            MessageBox(hDlg, L"Dane pacjenta zapisane pomyślnie.", L"Sukces", MB_OK);
+        }
+    }
+    else {
+        MessageBox(hDlg, L"Błąd połączenia z bazą danych.", L"Błąd połączenia", MB_OK | MB_ICONERROR);
+    }
+
+    // Zwalnianie zasobów
+    if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+    if (hDbc) {
+        SQLDisconnect(hDbc);
+        SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+    }
+    if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+}
 // Procedura obsługi dialogu dodawania pacjenta
 INT_PTR CALLBACK AddPatientDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -163,11 +218,12 @@ INT_PTR CALLBACK AddPatientDialogProc(HWND hDlg, UINT message, WPARAM wParam, LP
             // Przykład: INSERT INTO Patients (...) VALUES (...)
 
             MessageBox(hDlg, L"Pacjent dodany!", L"Sukces", MB_OK);
+            InsertPatientData(hDlg, name, surname, pesel, birthdate, address, email, phone, weight, height, nfz);
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
         }
         else if (LOWORD(wParam) == IDCANCEL)
-        {
+        {         
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
         }
@@ -186,6 +242,7 @@ void DodajPacjenta(HWND hWnd) {
         MessageBox(hWnd, L"Pacjent dodany pomyślnie!", L"Info", MB_OK);
     }
 }
+
 
 
 void UsunPacjenta(HWND hWnd) {
