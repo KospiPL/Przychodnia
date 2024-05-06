@@ -11,6 +11,7 @@
 #include <commctrl.h>
 #pragma comment(lib, "odbc32.lib")
 #pragma comment(lib, "comctl32.lib")
+
 #define MAX_LOADSTRING 100
 #define IDC_LOAD_DATA_BUTTON 101
 #define IDC_ADD_PATIENT_BUTTON 102
@@ -21,6 +22,8 @@
 
 
 // Zmienne globalne:
+extern SQLHDBC hDbc;
+SQLHDBC hDbc = NULL;
 HWND hWndListView;
 HINSTANCE hInst;                                // bieżące wystąpienie
 WCHAR szTitle[MAX_LOADSTRING];                  // Tekst paska tytułu
@@ -30,6 +33,7 @@ WCHAR szWindowClass[MAX_LOADSTRING];
 // Przekaż dalej deklaracje funkcji dołączone w tym module kodu:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
+BOOL DeletePatientFromDatabase(const WCHAR* szID);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
@@ -212,10 +216,7 @@ INT_PTR CALLBACK AddPatientDialogProc(HWND hDlg, UINT message, WPARAM wParam, LP
             GetDlgItemText(hDlg, IDC_EDIT_PHONE, phone, 100);
             GetDlgItemText(hDlg, IDC_EDIT_WEIGHT, weight, 100);
             GetDlgItemText(hDlg, IDC_EDIT_HEIGHT, height, 100);
-            GetDlgItemText(hDlg, IDC_EDIT_NFZ, nfz, 100);
-
-            // Tu dodaj kod do zapisania danych pacjenta w bazie danych
-            // Przykład: INSERT INTO Patients (...) VALUES (...)
+            GetDlgItemText(hDlg, IDC_EDIT_NFZ, nfz, 100);           
 
             MessageBox(hDlg, L"Pacjent dodany!", L"Sukces", MB_OK);
             InsertPatientData(hDlg, name, surname, pesel, birthdate, address, email, phone, weight, height, nfz);
@@ -233,11 +234,7 @@ INT_PTR CALLBACK AddPatientDialogProc(HWND hDlg, UINT message, WPARAM wParam, LP
 }
 
 void DodajPacjenta(HWND hWnd) {
-    // Dialogowe okno do wprowadzenia imienia i nazwiska
-    wchar_t imie[100];
-    wchar_t nazwisko[100];
-    wchar_t pesel[100];
-
+    
     if (DialogBox(hInst, MAKEINTRESOURCE(IDD_ADD_PATIENT_DIALOG), hWnd, AddPatientDialogProc)) {
         MessageBox(hWnd, L"Pacjent dodany pomyślnie!", L"Info", MB_OK);
     }
@@ -245,10 +242,7 @@ void DodajPacjenta(HWND hWnd) {
 
 
 
-void UsunPacjenta(HWND hWnd) {
-    // Tutaj kawałek logiki do pobrania identyfikatora zaznaczonego pacjenta i jego usunięcia z bazy danych
-    MessageBox(hWnd, L"Pacjent usunięty!", L"Info", MB_OK);
-}
+
 void DodajElementDoListView(HWND hWndListView, int liczbaKolumn, SQLHSTMT hStmt) {
     LVITEM lvItem;
     wchar_t buforTekstu[256];
@@ -264,7 +258,7 @@ void DodajElementDoListView(HWND hWndListView, int liczbaKolumn, SQLHSTMT hStmt)
             lvItem = { 0 };
             lvItem.mask = LVIF_TEXT;
             lvItem.iItem = indexWiersza;
-            lvItem.iSubItem = i - 1; // ListView subitems zaczynają się od 0
+            lvItem.iSubItem = i - 1; 
             lvItem.pszText = buforTekstu;
 
             if (i == 1) {
@@ -278,6 +272,93 @@ void DodajElementDoListView(HWND hWndListView, int liczbaKolumn, SQLHSTMT hStmt)
         }
         indexWiersza++;
     }
+}
+void RemoveSelectedPatient(HWND hWndListView) {
+    int iSelected = ListView_GetNextItem(hWndListView, -1, LVNI_SELECTED);
+    if (iSelected == -1) {
+        MessageBox(NULL, L"Proszę wybrać pacjenta do usunięcia.", L"Błąd", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    
+    WCHAR szID[256];
+    ListView_GetItemText(hWndListView, iSelected, 0, szID, sizeof(szID));  
+
+    if (DeletePatientFromDatabase(szID)) {
+        ListView_DeleteItem(hWndListView, iSelected);
+    }
+    else {
+        MessageBox(NULL, L"Wystąpił problem podczas usuwania pacjenta.", L"Błąd", MB_OK | MB_ICONERROR);
+    }
+}
+
+BOOL DeletePatientFromDatabase(const WCHAR* szID) {
+    SQLHENV hEnv = NULL;
+    SQLHDBC hDbc = NULL;
+    SQLHSTMT hStmt = NULL;
+    SQLRETURN retcode;
+
+    // Inicjalizacja środowiska ODBC
+    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+    SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+    // Alokuje uchwyt połączenia
+    SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+    wchar_t connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=(localdb)\\MSSQLLocalDB;Database=C:\\USERS\\KACPERCUDZIK\\SOURCE\\REPOS\\PRZYCHODNIA\\CLASSLIBRARY\\DATABASE1.MDF;";
+    retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+
+    if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+        // Alokuje uchwyt zapytania
+        SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+
+        wchar_t sqlQuery[1024];
+        swprintf_s(sqlQuery, 1024, L"DELETE FROM PACJENT WHERE ID = ? ");
+
+        // Wykonuje zapytanie SQL
+        retcode = SQLPrepareW(hStmt, sqlQuery, SQL_NTS);
+        if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+            SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+            return FALSE;
+        }
+
+        // Wiązanie parametru
+        retcode = SQLBindParameter(hStmt, 1, SQL_PARAM_INPUT, SQL_C_WCHAR, SQL_WVARCHAR, 0, 0, (SQLPOINTER)szID, 0, NULL);
+        if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+            SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+            return FALSE;
+        }
+
+        // Wykonanie zapytania
+        retcode = SQLExecute(hStmt); 
+        SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+
+        if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+            // Obsługa błędów zapytania
+            SQLWCHAR sqlState[1024];
+            SQLWCHAR messageText[1024];
+            SQLSMALLINT textLengthPtr;
+            SQLINTEGER nativeError;
+            SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, 1, sqlState, &nativeError, messageText, sizeof(messageText) / sizeof(WCHAR), &textLengthPtr);
+            MessageBox(hWndListView, messageText, L"Błąd SQL", MB_OK | MB_ICONERROR);
+        }
+        else {
+            MessageBox(NULL, L"Pacjent został usunięty.", L"Sukces", MB_OK); 
+        }
+    }
+    else {
+        MessageBox(hWndListView, L"Błąd połączenia z bazą danych.", L"Błąd połączenia", MB_OK | MB_ICONERROR);
+    }
+
+    // Zwalnianie zasobów
+    if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+    if (hDbc) {
+        SQLDisconnect(hDbc);
+        SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+    }
+    if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+
+    return (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO);
 }
 
 
@@ -335,8 +416,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     InitCommonControlsEx(&icex);
 
     hWndListView = CreateWindowExW(0, WC_LISTVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | LVS_REPORT,
-        0, 0,1200, 480, hWnd, (HMENU)IDC_MYLISTVIEW, hInstance, NULL);
+        WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SINGLESEL,
+        0, 0, 1200, 480, hWnd, (HMENU)IDC_MYLISTVIEW, hInstance, NULL);
+    ListView_SetExtendedListViewStyle(hWndListView, LVS_EX_FULLROWSELECT);
 
     if (!hWndListView) {
         return FALSE;
@@ -361,6 +443,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     // Kolumna 2
     wchar_t nazwisko[] = L"Nazwisko";
     lvColumn.pszText = nazwisko;
+    lvColumn.cx = 100;
     ListView_InsertColumn(hWndListView, 2, &lvColumn);
 
     // Kolumna 3
@@ -456,7 +539,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ADD_PATIENT_DIALOG), hWnd, AddPatientDialogProc);
             break;
         case IDC_REMOVE_PATIENT_BUTTON:
-            UsunPacjenta(hWnd);
+            RemoveSelectedPatient(hWndListView);
             break;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
