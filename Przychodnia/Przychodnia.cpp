@@ -407,6 +407,186 @@ void DodajElementDoListView(HWND hWndListView, int liczbaKolumn, SQLHSTMT hStmt)
         indexWiersza++;
     }
 }
+void OpenEditPatientDialog(HWND hWnd) {
+    int iSelected = ListView_GetNextItem(hWndListView, -1, LVNI_SELECTED);
+    if (iSelected == -1) {
+        MessageBox(NULL, L"Proszę wybrać pacjenta do edycji.", L"Błąd", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    // Pobierz ID pacjenta
+    wchar_t szID[256];
+    ListView_GetItemText(hWndListView, iSelected, 0, szID, sizeof(szID));
+
+    // Otwórz okno dialogowe do edycji
+    DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_EDIT_PATIENT_DIALOG), hWnd, EditPatientDialogProc, (LPARAM)szID);
+}
+void UpdatePatientData(HWND hDlg, const wchar_t* id, const wchar_t* name, const wchar_t* surname, const wchar_t* pesel,
+    const wchar_t* birthdate, const wchar_t* address, const wchar_t* email, const wchar_t* phone, const wchar_t* weight, const wchar_t* height, const wchar_t* nfz) {
+    SQLHENV hEnv = NULL;
+    SQLHDBC hDbc = NULL;
+    SQLHSTMT hStmt = NULL;
+    SQLRETURN retcode;
+
+    // Inicjalizacja środowiska ODBC
+    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+    SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+    // Alokuje uchwyt połączenia
+    SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;";
+
+    retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+
+    if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+        // Alokuje uchwyt zapytania
+        SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+
+        wchar_t sqlQuery[2048];
+        swprintf_s(sqlQuery, 2048, L"UPDATE PACJENT SET IMIE='%s', NAZWISKO='%s', PESEL='%s', DATA_URODZENIA='%s', Adres='%s', mail='%s', TELEFON='%s', MASA_CIAŁA='%s', WZROST='%s', ODDZIAŁ_NFZ='%s' WHERE ID=%s;",
+            name, surname, pesel, birthdate, address, email, phone, weight, height, nfz, id);
+
+        // Wykonuje zapytanie SQL
+        retcode = SQLExecDirectW(hStmt, sqlQuery, SQL_NTS);
+
+        if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+            // Obsługa błędów zapytania
+            SQLWCHAR sqlState[1024];
+            SQLWCHAR messageText[1024];
+            SQLSMALLINT textLengthPtr;
+            SQLINTEGER nativeError;
+            SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, 1, sqlState, &nativeError, messageText, sizeof(messageText) / sizeof(WCHAR), &textLengthPtr);
+            MessageBox(hDlg, messageText, L"Błąd SQL", MB_OK | MB_ICONERROR);
+        }
+        else {
+            MessageBox(hDlg, L"Dane pacjenta zaktualizowane pomyślnie.", L"Sukces", MB_OK);
+        }
+    }
+    else {
+        MessageBox(hDlg, L"Błąd połączenia z bazą danych.", L"Błąd połączenia", MB_OK | MB_ICONERROR);
+    }
+
+    // Zwalnianie zasobów
+    if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+    if (hDbc) {
+        SQLDisconnect(hDbc);
+        SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+    }
+    if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+}
+
+// ladowanie oacjentow do okna edycji 
+void LoadPatientData(HWND hDlg, const wchar_t* patientID) {
+    SQLHENV hEnv = NULL;
+    SQLHDBC hDbc = NULL;
+    SQLHSTMT hStmt = NULL;
+    SQLRETURN retcode;
+
+    // Inicjalizacja środowiska ODBC
+    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+    SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+    // Alokuje uchwyt połączenia
+    SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;";
+
+    retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+
+    if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+        // Alokuje uchwyt zapytania
+        SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+
+        wchar_t sqlQuery[1024];
+        swprintf_s(sqlQuery, 1024, L"SELECT IMIE, NAZWISKO, PESEL, DATA_URODZENIA, Adres, mail, TELEFON, MASA_CIAŁA, WZROST, ODDZIAŁ_NFZ FROM PACJENT WHERE ID=%s;", patientID);
+
+        // Wykonuje zapytanie SQL
+        retcode = SQLExecDirectW(hStmt, sqlQuery, SQL_NTS);
+
+        if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+            SQLWCHAR name[100], surname[100], pesel[100], birthdate[100], address[100], email[100], phone[100], weight[100], height[100], nfz[100];
+            SQLLEN cbName, cbSurname, cbPesel, cbBirthdate, cbAddress, cbEmail, cbPhone, cbWeight, cbHeight, cbNfz;
+
+            // Załadowanie wyników do zmiennych
+            SQLBindCol(hStmt, 1, SQL_C_WCHAR, name, sizeof(name), &cbName);
+            SQLBindCol(hStmt, 2, SQL_C_WCHAR, surname, sizeof(surname), &cbSurname);
+            SQLBindCol(hStmt, 3, SQL_C_WCHAR, pesel, sizeof(pesel), &cbPesel);
+            SQLBindCol(hStmt, 4, SQL_C_WCHAR, birthdate, sizeof(birthdate), &cbBirthdate);
+            SQLBindCol(hStmt, 5, SQL_C_WCHAR, address, sizeof(address), &cbAddress);
+            SQLBindCol(hStmt, 6, SQL_C_WCHAR, email, sizeof(email), &cbEmail);
+            SQLBindCol(hStmt, 7, SQL_C_WCHAR, phone, sizeof(phone), &cbPhone);
+            SQLBindCol(hStmt, 8, SQL_C_WCHAR, weight, sizeof(weight), &cbWeight);
+            SQLBindCol(hStmt, 9, SQL_C_WCHAR, height, sizeof(height), &cbHeight);
+            SQLBindCol(hStmt, 10, SQL_C_WCHAR, nfz, sizeof(nfz), &cbNfz);
+
+            if (SQLFetch(hStmt) == SQL_SUCCESS) {
+                SetDlgItemText(hDlg, IDC_EDIT_NAME, name);
+                SetDlgItemText(hDlg, IDC_EDIT_SURNAME, surname);
+                SetDlgItemText(hDlg, IDC_EDIT_PESEL, pesel);
+                SetDlgItemText(hDlg, IDC_EDIT_BIRTHDATE, birthdate);
+                SetDlgItemText(hDlg, IDC_EDIT_ADDRESS, address);
+                SetDlgItemText(hDlg, IDC_EDIT_EMAIL, email);
+                SetDlgItemText(hDlg, IDC_EDIT_PHONE, phone);
+                SetDlgItemText(hDlg, IDC_EDIT_WEIGHT, weight);
+                SetDlgItemText(hDlg, IDC_EDIT_HEIGHT, height);
+                SetDlgItemText(hDlg, IDC_EDIT_NFZ, nfz);
+            }
+        }
+        else {
+            // Obsługa błędów zapytania
+            MessageBox(hDlg, L"Błąd wykonania zapytania SQL.", L"Błąd SQL", MB_OK | MB_ICONERROR);
+        }
+    }
+    else {
+        MessageBox(hDlg, L"Błąd połączenia z bazą danych.", L"Błąd połączenia", MB_OK | MB_ICONERROR);
+    }
+
+    // Zwalnianie zasobów
+    if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+    if (hDbc) {
+        SQLDisconnect(hDbc);
+        SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+    }
+    if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+}
+
+//ładowani wartosci z okna do zapisu do bazy
+INT_PTR CALLBACK EditPatientDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    static const wchar_t* patientID;
+
+    switch (message) {
+    case WM_INITDIALOG:
+        patientID = (const wchar_t*)lParam;
+        LoadPatientData(hDlg, patientID);
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK) {
+            wchar_t name[100], surname[100], pesel[100], birthdate[100], address[100], email[100], phone[100], weight[100], height[100], nfz[10];
+            GetDlgItemText(hDlg, IDC_EDIT_NAME, name, ARRAYSIZE(name));
+            GetDlgItemText(hDlg, IDC_EDIT_SURNAME, surname, ARRAYSIZE(surname));
+            GetDlgItemText(hDlg, IDC_EDIT_PESEL, pesel, ARRAYSIZE(pesel));
+            GetDlgItemText(hDlg, IDC_EDIT_BIRTHDATE, birthdate, ARRAYSIZE(birthdate));
+            GetDlgItemText(hDlg, IDC_EDIT_ADDRESS, address, ARRAYSIZE(address));
+            GetDlgItemText(hDlg, IDC_EDIT_EMAIL, email, ARRAYSIZE(email));
+            GetDlgItemText(hDlg, IDC_EDIT_PHONE, phone, ARRAYSIZE(phone));
+            GetDlgItemText(hDlg, IDC_EDIT_WEIGHT, weight, ARRAYSIZE(weight));
+            GetDlgItemText(hDlg, IDC_EDIT_HEIGHT, height, ARRAYSIZE(height));
+            GetDlgItemText(hDlg, IDC_EDIT_NFZ, nfz, ARRAYSIZE(nfz));
+
+            UpdatePatientData(hDlg, patientID, name, surname, pesel, birthdate, address, email, phone, weight, height, nfz);
+            EndDialog(hDlg, IDOK);
+            return (INT_PTR)TRUE;
+        }
+        else if (LOWORD(wParam) == IDCANCEL) {
+            EndDialog(hDlg, IDCANCEL);
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
 ///////////////////////////////////////////////////////////////////////////////
 // 
 // Lekarze
@@ -741,6 +921,7 @@ void DodajElementDoListLek(HWND hWndListLek, int liczbaKolumn, SQLHSTMT hStmt) {
         indexWiersza++;
     }
 }
+
 ////
 //////////////////////////////////////////////////////////////////////
 
@@ -976,7 +1157,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     HWND hDoctorEdit = CreateWindow(L"BUTTON", L"Edytuj Lekarza",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
         135, 500, 125, 25,
-        hWnd, (HMENU)IDC_DOCTOR_EDIT, hInstance, NULL);
+        hWnd, (HMENU)IDC_DOCTOR_EDIT, hInst, NULL);
     ShowWindow(hDoctorEdit, SW_HIDE);
     HWND hSearchBox = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", L"",
         WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
@@ -1030,6 +1211,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         case IDC_REMOVE_PATIENT_BUTTON:
             RemoveSelectedPatient(hWndListView);
+            break;
+        case IDC_EDIT_PATIENT_BUTTON:
+            OpenEditPatientDialog(hWnd); 
             break;
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
