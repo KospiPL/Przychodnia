@@ -68,7 +68,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     return (int)msg.wParam;
 }
 void DodajElementDoListView(HWND hWndListView, int liczbaKolumn, SQLHSTMT hStmt);
-
+////////////////////////////////////////////////////////////////////////////////
+// 
+// Pacjeci
+//Dodawanie danych do tabeli pacjentów i pobieranie
 void PobierzDaneZBazy(HWND hWndListView) {
     SQLHENV hEnv = NULL;
     SQLHDBC hDbc = NULL;
@@ -133,6 +136,7 @@ void PobierzDaneZBazy(HWND hWndListView) {
         if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
     }
 }
+//Dodawanie pacjenta
 void InsertPatientData(HWND hDlg, const wchar_t* name, const wchar_t* surname, const wchar_t* pesel,
     const wchar_t* birthdate, const wchar_t* address, const wchar_t* email,
     const wchar_t* phone, const wchar_t* weight, const wchar_t* height, const wchar_t* nfz)
@@ -227,47 +231,7 @@ INT_PTR CALLBACK AddPatientDialogProc(HWND hDlg, UINT message, WPARAM wParam, LP
     }
     return (INT_PTR)FALSE;
 }
-
-void DodajPacjenta(HWND hWnd) {
-    
-    if (DialogBox(hInst, MAKEINTRESOURCE(IDD_ADD_PATIENT_DIALOG), hWnd, AddPatientDialogProc)) {
-        MessageBox(hWnd, L"Pacjent dodany pomyślnie!", L"Info", MB_OK);
-    }
-}
-
-
-
-
-void DodajElementDoListView(HWND hWndListView, int liczbaKolumn, SQLHSTMT hStmt) {
-    LVITEM lvItem;
-    wchar_t buforTekstu[256];
-    SQLWCHAR buforDanych[256];
-    SQLLEN dlugoscDanych;
-
-    int indexWiersza = 0;
-    while (SQLFetch(hStmt) == SQL_SUCCESS) {
-        for (int i = 1; i <= liczbaKolumn; i++) { // Indeksowanie kolumn zaczyna się od 1
-            SQLGetData(hStmt, i, SQL_C_WCHAR, buforDanych, sizeof(buforDanych), &dlugoscDanych);
-            wsprintf(buforTekstu, L"%s", buforDanych);
-
-            lvItem = { 0 };
-            lvItem.mask = LVIF_TEXT;
-            lvItem.iItem = indexWiersza;
-            lvItem.iSubItem = i - 1; 
-            lvItem.pszText = buforTekstu;
-
-            if (i == 1) {
-                // Wstawia nowy wiersz
-                ListView_InsertItem(hWndListView, &lvItem);
-            }
-            else {
-                // Uzupełnia wiersz o kolejne kolumny
-                ListView_SetItemText(hWndListView, indexWiersza, i - 1, lvItem.pszText);
-            }
-        }
-        indexWiersza++;
-    }
-}
+//Funkcja do usuwania wybranego pacjenta i przkazanie do kolejnej funkcji
 void RemoveSelectedPatient(HWND hWndListView) {
     int iSelected = ListView_GetNextItem(hWndListView, -1, LVNI_SELECTED);
     if (iSelected == -1) {
@@ -275,9 +239,9 @@ void RemoveSelectedPatient(HWND hWndListView) {
         return;
     }
 
-    
+
     WCHAR szID[256];
-    ListView_GetItemText(hWndListView, iSelected, 0, szID, sizeof(szID));  
+    ListView_GetItemText(hWndListView, iSelected, 0, szID, sizeof(szID));
 
     if (DeletePatientFromDatabase(szID)) {
         ListView_DeleteItem(hWndListView, iSelected);
@@ -286,7 +250,7 @@ void RemoveSelectedPatient(HWND hWndListView) {
         MessageBox(NULL, L"Wystąpił problem podczas usuwania pacjenta.", L"Błąd", MB_OK | MB_ICONERROR);
     }
 }
-
+//Usuwanie pacjenta z bazy danych
 BOOL DeletePatientFromDatabase(const WCHAR* szID) {
     SQLHENV hEnv = NULL;
     SQLHDBC hDbc = NULL;
@@ -300,7 +264,7 @@ BOOL DeletePatientFromDatabase(const WCHAR* szID) {
     // Alokuje uchwyt połączenia
     SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
 
-    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;"; 
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;";
     retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
 
     if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
@@ -325,7 +289,7 @@ BOOL DeletePatientFromDatabase(const WCHAR* szID) {
         }
 
         // Wykonanie zapytania
-        retcode = SQLExecute(hStmt); 
+        retcode = SQLExecute(hStmt);
         SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
 
         if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
@@ -338,7 +302,7 @@ BOOL DeletePatientFromDatabase(const WCHAR* szID) {
             MessageBox(hWndListView, messageText, L"Błąd SQL", MB_OK | MB_ICONERROR);
         }
         else {
-            MessageBox(NULL, L"Pacjent został usunięty.", L"Sukces", MB_OK); 
+            MessageBox(NULL, L"Pacjent został usunięty.", L"Sukces", MB_OK);
         }
     }
     else {
@@ -355,18 +319,178 @@ BOOL DeletePatientFromDatabase(const WCHAR* szID) {
 
     return (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO);
 }
-INT_PTR CALLBACK DoctorsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+// szukanie pacjentów
+void SearchPatientsOrDoctors(HWND hWndListView, const WCHAR* searchText) {
+    SQLHENV hEnv = NULL;
+    SQLHDBC hDbc = NULL;
+    SQLHSTMT hStmt = NULL;
+    SQLRETURN retcode;
+
+    // Inicjalizacja środowiska ODBC
+    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+    SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+    // Alokuje uchwyt połączenia
+    SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;";
+
+    retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+
+    if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+        // Alokuje uchwyt zapytania
+        SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+
+        wchar_t sqlQuery[1024];
+        swprintf_s(sqlQuery, 1024, L"SELECT * FROM PACJENT WHERE Imie LIKE '%%%s%%' OR Nazwisko LIKE '%%%s%%' OR PESEL LIKE '%%%s%%';",
+            searchText, searchText, searchText);
+
+        // Wykonuje zapytanie SQL
+        retcode = SQLExecDirectW(hStmt, sqlQuery, SQL_NTS);
+
+        if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+            // Czyści poprzednie wyniki
+            ListView_DeleteAllItems(hWndListView);
+            SQLSMALLINT liczbaKolumn = 0;
+
+            SQLNumResultCols(hStmt, &liczbaKolumn);
+
+            // Ładuje dane do ListView
+            DodajElementDoListView(hWndListView, liczbaKolumn, hStmt);
+        }
+        else {
+            // Obsługa błędów zapytania
+            MessageBox(hWndListView, L"Błąd wykonania zapytania SQL.", L"Błąd SQL", MB_OK | MB_ICONERROR);
+        }
+    }
+    else {
+        // Obsługa błędów połączenia
+        MessageBox(hWndListView, L"Błąd połączenia z bazą danych.", L"Błąd połączenia", MB_OK | MB_ICONERROR);
+    }
+
+    // Zwalnianie zasobów
+    if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+    if (hDbc) {
+        SQLDisconnect(hDbc);
+        SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+    }
+    if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+}
+//dodwaniae lekordów do listy pacjentów
+void DodajElementDoListView(HWND hWndListView, int liczbaKolumn, SQLHSTMT hStmt) {
+    LVITEM lvItem;
+    wchar_t buforTekstu[256];
+    SQLWCHAR buforDanych[256];
+    SQLLEN dlugoscDanych;
+
+    int indexWiersza = 0;
+    while (SQLFetch(hStmt) == SQL_SUCCESS) {
+        for (int i = 1; i <= liczbaKolumn; i++) { // Indeksowanie kolumn zaczyna się od 1
+            SQLGetData(hStmt, i, SQL_C_WCHAR, buforDanych, sizeof(buforDanych), &dlugoscDanych);
+            wsprintf(buforTekstu, L"%s", buforDanych);
+
+            lvItem = { 0 };
+            lvItem.mask = LVIF_TEXT;
+            lvItem.iItem = indexWiersza;
+            lvItem.iSubItem = i - 1;
+            lvItem.pszText = buforTekstu;
+
+            if (i == 1) {
+                // Wstawia nowy wiersz
+                ListView_InsertItem(hWndListView, &lvItem);
+            }
+            else {
+                // Uzupełnia wiersz o kolejne kolumny
+                ListView_SetItemText(hWndListView, indexWiersza, i - 1, lvItem.pszText);
+            }
+        }
+        indexWiersza++;
+    }
+}
+///////////////////////////////////////////////////////////////////////////////
+// 
+// Lekarze
+
+// zapisywanie lekarza do bazy danych
+void InsertDoctorData(HWND hDlg, const wchar_t* name, const wchar_t* surname, const wchar_t* pesel,
+    const wchar_t* num_pwz, const wchar_t* title, const wchar_t* specialization, const wchar_t* email, const wchar_t* phone) 
 {
-    switch (message)
-    {
+    SQLHENV hEnv = NULL;
+    SQLHDBC hDbc = NULL;
+    SQLHSTMT hStmt = NULL;
+    SQLRETURN retcode;
+
+    // Inicjalizacja środowiska ODBC
+    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+    SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+    // Alokuje uchwyt połączenia
+    SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;";
+
+    retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+
+    if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+        // Alokuje uchwyt zapytania
+        SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+
+        wchar_t sqlQuery[1024];
+        swprintf_s(sqlQuery, 1024, L"INSERT INTO lekarz (IMIE, NAZWISKO, PESEL, Numer_PWZ, Tytuł,  Specja, Email, Telefon) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s');",
+            name, surname, pesel, num_pwz, title, specialization, email, phone);
+
+        // Wykonuje zapytanie SQL
+        retcode = SQLExecDirectW(hStmt, sqlQuery, SQL_NTS);
+
+        if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+            // Obsługa błędów zapytania
+            SQLWCHAR sqlState[1024];
+            SQLWCHAR messageText[1024];
+            SQLSMALLINT textLengthPtr;
+            SQLINTEGER nativeError;
+            SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, 1, sqlState, &nativeError, messageText, sizeof(messageText) / sizeof(WCHAR), &textLengthPtr);
+            MessageBox(hDlg, messageText, L"Błąd SQL", MB_OK | MB_ICONERROR);
+        }
+        else {
+            MessageBox(hDlg, L"Dane pacjenta zapisane pomyślnie.", L"Sukces", MB_OK);
+        }
+    }
+    else {
+        MessageBox(hDlg, L"Błąd połączenia z bazą danych.", L"Błąd połączenia", MB_OK | MB_ICONERROR);
+    }
+
+    // Zwalnianie zasobów
+    if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+    if (hDbc) {
+        SQLDisconnect(hDbc);
+        SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+    }
+    if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+}
+//Dodawanie nowego leakrza
+INT_PTR CALLBACK AddDoctorDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
     case WM_INITDIALOG:
-        
         return (INT_PTR)TRUE;
 
     case WM_COMMAND:
-        switch (LOWORD(wParam))
-        {
-        case IDCANCEL:
+        if (LOWORD(wParam) == IDOK) {
+            wchar_t name[100], surname[100], pesel[100], num_pwz[100], title[100], specialization[100], email[100], phone[100];
+            GetDlgItemText(hDlg, IDC_EDIT_NAME, name, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_SURNAME, surname, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_PESEL, pesel, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_NUM, num_pwz, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_TYT, title, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_SPE, specialization, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_EM, email, 100);
+            GetDlgItemText(hDlg, IDC_EDIT_TEL, phone, 100);
+
+            MessageBox(hDlg, L"Lekarz dodany!", L"Sukces", MB_OK);
+            InsertDoctorData(hDlg, name, surname, pesel, num_pwz, title, specialization, email, phone);
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        else if (LOWORD(wParam) == IDCANCEL) {
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
         }
@@ -374,12 +498,251 @@ INT_PTR CALLBACK DoctorsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
     }
     return (INT_PTR)FALSE;
 }
-void SearchPatientsOrDoctors(HWND hWnd, const WCHAR* searchText) {
-    // Tu składaj zapytanie SQL z uwzględnieniem searchText
-    // Na przykład: SELECT * FROM PACJENT WHERE Imie LIKE '%searchText%' OR Nazwisko LIKE '%searchText%' OR PESEL LIKE '%searchText%'
-    // Wykonaj zapytanie i zaktualizuj wyniki w ListView
-}
 
+
+//szukanie lekarzy
+void SearchDoctors(HWND hWndListLek, const WCHAR* searchText) {
+        
+    SQLHENV hEnv = NULL;
+    SQLHDBC hDbc = NULL;
+    SQLHSTMT hStmt = NULL;
+    SQLRETURN retcode;
+
+    // Inicjalizacja środowiska ODBC
+    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+    SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+    // Alokuje uchwyt połączenia
+    SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;";
+
+    retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+
+    if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+        // Alokuje uchwyt zapytania
+        SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+
+        wchar_t sqlQuery[1024];
+        swprintf_s(sqlQuery, 1024, L"SELECT * FROM LEKARZ WHERE Imie LIKE '%%%s%%' OR Nazwisko LIKE '%%%s%%' OR PESEL LIKE '%%%s%%';",
+            searchText, searchText, searchText);
+
+        // Wykonuje zapytanie SQL
+        retcode = SQLExecDirectW(hStmt, sqlQuery, SQL_NTS);
+
+        if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+            // Czyści poprzednie wyniki
+            ListView_DeleteAllItems(hWndListLek);
+            SQLSMALLINT liczbaKolumn = 0;
+
+            SQLNumResultCols(hStmt, &liczbaKolumn);
+
+            // Ładuje dane do ListView
+            DodajElementDoListView(hWndListLek, liczbaKolumn, hStmt);
+        }
+        else {
+            // Obsługa błędów zapytania
+            MessageBox(hWndListLek, L"Błąd wykonania zapytania SQL.", L"Błąd SQL", MB_OK | MB_ICONERROR);
+        }
+    }
+    else {
+        // Obsługa błędów połączenia
+        MessageBox(hWndListLek, L"Błąd połączenia z bazą danych.", L"Błąd połączenia", MB_OK | MB_ICONERROR);
+    }
+
+    // Zwalnianie zasobów
+    if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+    if (hDbc) {
+        SQLDisconnect(hDbc);
+        SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+    }
+    if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+}
+BOOL DeleteDoctorFromDatabase(const WCHAR* szID) {
+    SQLHENV hEnv = NULL;
+    SQLHDBC hDbc = NULL;
+    SQLHSTMT hStmt = NULL;
+    SQLRETURN retcode;
+
+    // Inicjalizacja środowiska ODBC
+    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+    SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+    // Alokuje uchwyt połączenia
+    SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;";
+    retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+
+    if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+        // Alokuje uchwyt zapytania
+        SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+
+        wchar_t sqlQuery[1024];
+        swprintf_s(sqlQuery, 1024, L"DELETE FROM Lekarz WHERE ID = ? ");
+
+        // Wykonuje zapytanie SQL
+        retcode = SQLPrepareW(hStmt, sqlQuery, SQL_NTS);
+        if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+            SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+            return FALSE;
+        }
+
+        // Wiązanie parametru
+        retcode = SQLBindParameter(hStmt, 1, SQL_PARAM_INPUT, SQL_C_WCHAR, SQL_WVARCHAR, 0, 0, (SQLPOINTER)szID, 0, NULL);
+        if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+            SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+            return FALSE;
+        }
+
+        // Wykonanie zapytania
+        retcode = SQLExecute(hStmt);
+        SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+
+        if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+            // Obsługa błędów zapytania
+            SQLWCHAR sqlState[1024];
+            SQLWCHAR messageText[1024];
+            SQLSMALLINT textLengthPtr;
+            SQLINTEGER nativeError;
+            SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, 1, sqlState, &nativeError, messageText, sizeof(messageText) / sizeof(WCHAR), &textLengthPtr);
+            MessageBox(hWndListLek, messageText, L"Błąd SQL", MB_OK | MB_ICONERROR);
+        }
+        else {
+            MessageBox(NULL, L"Pacjent został usunięty.", L"Sukces", MB_OK);
+        }
+    }
+    else {
+        MessageBox(hWndListLek, L"Błąd połączenia z bazą danych.", L"Błąd połączenia", MB_OK | MB_ICONERROR);
+    }
+
+    // Zwalnianie zasobów
+    if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+    if (hDbc) {
+        SQLDisconnect(hDbc);
+        SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+    }
+    if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+
+    return (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO);
+}
+//Funkcja do usuwania wybranego lekarza i przkazanie do kolejnej funkcji
+void RemoveSelectedDoctor(HWND hWndListLek) {
+    int iSelected = ListView_GetNextItem(hWndListLek, -1, LVNI_SELECTED);
+    if (iSelected == -1) {
+        MessageBox(NULL, L"Proszę wybrać pacjenta do usunięcia.", L"Błąd", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+
+    WCHAR szID[256];
+    ListView_GetItemText(hWndListLek, iSelected, 0, szID, sizeof(szID));
+
+    if (DeleteDoctorFromDatabase(szID)) {
+        ListView_DeleteItem(hWndListLek, iSelected);
+    }
+    else {
+        MessageBox(NULL, L"Wystąpił problem podczas usuwania pacjenta.", L"Błąd", MB_OK | MB_ICONERROR);
+    }
+}
+//pobieranie z bazy rekrdow lekarzy
+void PobierzLekarzyZBazy(HWND hWndListLek) {
+    SQLHENV hEnv = NULL;
+    SQLHDBC hDbc = NULL;
+    SQLHSTMT hStmt = NULL;
+    SQLRETURN retcode;
+
+    // Inicjalizacja środowiska ODBC
+    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+    SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+    // Alokuje uchwyt połączenia
+    SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+    // Nawiązywanie połączenia
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;";
+
+    retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+
+    if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+        // Alokuje uchwyt zapytania
+        SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+
+        // Wykonuje zapytanie SQL
+        SQLWCHAR sqlQuery[] = L"SELECT * FROM Lekarz;";
+        retcode = SQLExecDirectW(hStmt, sqlQuery, SQL_NTS);
+
+        if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) {
+            // Obsługa błędów zapytania
+            SQLWCHAR sqlState[1024];
+            SQLWCHAR messageText[1024];
+            SQLSMALLINT i = 0, textLengthPtr;
+            SQLINTEGER nativeError;
+            SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, ++i, sqlState, &nativeError, messageText, sizeof(messageText) / sizeof(WCHAR), &textLengthPtr);
+            wprintf(L"SQL Error: %s - %s\n", sqlState, messageText);
+        }
+        else {
+            SQLSMALLINT liczbaKolumn = 0;
+            // Pobiera liczbę kolumn w wyniku zapytania
+            SQLNumResultCols(hStmt, &liczbaKolumn);
+
+            // Ładuje dane do ListView
+            DodajElementDoListView(hWndListLek, liczbaKolumn, hStmt);
+        }
+    }
+    else {
+        // Obsługa błędów połączenia
+        SQLWCHAR sqlState[1024];
+        SQLWCHAR messageText[1024];
+        SQLSMALLINT i = 0, textLengthPtr;
+        SQLINTEGER nativeError;
+        SQLGetDiagRec(SQL_HANDLE_DBC, hDbc, ++i, sqlState, &nativeError, messageText, sizeof(messageText) / sizeof(WCHAR), &textLengthPtr);
+        while (SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, ++i, sqlState, &nativeError, messageText, sizeof(messageText) / sizeof(WCHAR), &textLengthPtr) != SQL_NO_DATA) {
+            wprintf(L"SQL Error: %s - %s\n", sqlState, messageText);
+        }
+
+        // Zwalnianie zasobów
+        if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+        if (hDbc) {
+            SQLDisconnect(hDbc);
+            SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+        }
+        if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+    }
+}
+//Dodawanie rekordów do listy lekarzy
+void DodajElementDoListLek(HWND hWndListLek, int liczbaKolumn, SQLHSTMT hStmt) {
+    LVITEM lvItem;
+    wchar_t buforTekstu[256];
+    SQLWCHAR buforDanych[256];
+    SQLLEN dlugoscDanych;
+
+    int indexWiersza = 0;
+    while (SQLFetch(hStmt) == SQL_SUCCESS) {
+        for (int i = 1; i <= liczbaKolumn; i++) { // Indeksowanie kolumn zaczyna się od 1
+            SQLGetData(hStmt, i, SQL_C_WCHAR, buforDanych, sizeof(buforDanych), &dlugoscDanych);
+            wsprintf(buforTekstu, L"%s", buforDanych);
+
+            lvItem = { 0 };
+            lvItem.mask = LVIF_TEXT;
+            lvItem.iItem = indexWiersza;
+            lvItem.iSubItem = i - 1;
+            lvItem.pszText = buforTekstu;
+
+            if (i == 1) {
+                // Wstawia nowy wiersz
+                ListView_InsertItem(hWndListLek, &lvItem);
+            }
+            else {
+                // Uzupełnia wiersz o kolejne kolumny
+                ListView_SetItemText(hWndListLek, indexWiersza, i - 1, lvItem.pszText);
+            }
+        }
+        indexWiersza++;
+    }
+}
+////
+//////////////////////////////////////////////////////////////////////
 
 
 //
@@ -602,27 +965,35 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     ShowWindow(hDoctorLoad, SW_HIDE);
     HWND hDoctorAdd = CreateWindow(L"BUTTON", L"Dodaj Lekarza",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-        255, 500, 125, 25,
+        260, 500, 125, 25,
         hWnd, (HMENU)IDC_DOCTOR_ADD, hInstance, NULL);
     ShowWindow(hDoctorAdd, SW_HIDE);
     HWND hDoctorDelete = CreateWindow(L"BUTTON", L"Usuń Lekarza",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-        135, 500, 125, 25,
+        379, 500, 125, 25,
         hWnd, (HMENU)IDC_DOCTOR_DELETE, hInstance, NULL);
     ShowWindow(hDoctorDelete, SW_HIDE);
-    HWND hDoctorEdit = CreateWindow(L"BUTTON", L"Usuń Lekarza",
+    HWND hDoctorEdit = CreateWindow(L"BUTTON", L"Edytuj Lekarza",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
         135, 500, 125, 25,
         hWnd, (HMENU)IDC_DOCTOR_EDIT, hInstance, NULL);
-    ShowWindow(hDoctorDelete, SW_HIDE);
+    ShowWindow(hDoctorEdit, SW_HIDE);
     HWND hSearchBox = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", L"",
         WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
-        700, 10, 150, 20, hWnd, (HMENU)IDC_SEARCH_BOX, hInstance, NULL);
-
-    HWND hSearchButton = CreateWindow(L"BUTTON", L"Szukaj",
+        1200, 0, 250, 30, hWnd, (HMENU)IDC_SEARCH_BOX, hInstance, NULL);
+    ShowWindow(hSearchBox, SW_HIDE);
+    HWND hSearchButton = CreateWindow(L"BUTTON", L"Szukaj Pacjenta",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-        860, 10, 50, 20, hWnd, (HMENU)IDC_SEARCH_BUTTON, hInstance, NULL);
-    
+        1450, 0, 110, 30, hWnd, (HMENU)IDC_SEARCH_BUTTON, hInstance, NULL);
+    ShowWindow(hSearchButton, SW_HIDE);
+    HWND hSearchBoxDoctor = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
+        1000, 0, 250, 30, hWnd, (HMENU)IDC_SEARCH_BOX_DOCTOR, hInstance, NULL);
+    ShowWindow(hSearchBoxDoctor, SW_HIDE);
+    HWND hSearchButtonDoctor = CreateWindow(L"BUTTON", L"Szukaj Lekarza",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        1250, 0, 110, 30, hWnd, (HMENU)IDC_SEARCH_BUTTON_DOCTOR, hInstance, NULL);
+    ShowWindow(hSearchButtonDoctor, SW_HIDE);
 
 
     ShowWindow(hWnd, nCmdShow);
@@ -666,16 +1037,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_EXIT:
             DestroyWindow(hWnd);
             break;
+        case IDC_DOCTOR_ADD:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_ADD_DOCTOR_DIALOG), hWnd, AddDoctorDialogProc);
+            break;
+        case IDC_DOCTOR_LOAD:
+            ListView_DeleteAllItems(hWndListLek);
+            PobierzLekarzyZBazy(hWndListLek);
+            break;
+        case IDC_DOCTOR_DELETE:
+            RemoveSelectedDoctor(hWndListLek);
+            break;
+        case IDC_DOCTOR_EDIT:
+            break;
         case IDM_LEK:  
             ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_ADD), SW_SHOW);
             ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_DELETE), SW_SHOW);
             ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_LIST), SW_SHOW); 
             ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_LOAD), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_EDIT), SW_SHOW);
             ShowWindow(GetDlgItem(hWnd, IDC_LOAD_DATA_BUTTON), SW_HIDE);
             ShowWindow(GetDlgItem(hWnd, IDC_REMOVE_PATIENT_BUTTON), SW_HIDE);
             ShowWindow(GetDlgItem(hWnd, IDC_ADD_PATIENT_BUTTON), SW_HIDE);
             ShowWindow(GetDlgItem(hWnd, IDC_MYLISTVIEW), SW_HIDE);
             ShowWindow(GetDlgItem(hWnd, IDC_EDIT_PATIENT_BUTTON), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BUTTON), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BOX), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BUTTON_DOCTOR), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BOX_DOCTOR), SW_SHOW);
             break;
         case IDM_WIZ:
             break;
@@ -686,18 +1074,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             ShowWindow(GetDlgItem(hWnd, IDC_MYLISTVIEW), SW_SHOW);
             ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_ADD), SW_HIDE);
             ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_DELETE), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_EDIT), SW_HIDE);
             ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_LIST), SW_HIDE);
             ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_LOAD), SW_HIDE);
             ShowWindow(GetDlgItem(hWnd, IDC_EDIT_PATIENT_BUTTON), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BUTTON), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BOX), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BUTTON_DOCTOR), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BOX_DOCTOR), SW_HIDE);
             break;
         case IDM_HAR:
             break;
-        case WM_COMMAND:
+        case IDC_SEARCH_BUTTON: 
             if (LOWORD(wParam) == IDC_SEARCH_BUTTON) {
-                WCHAR searchText[256];
-                GetDlgItemText(hWnd, IDC_SEARCH_BOX, searchText, 256);
-                SearchPatientsOrDoctors(hWndListView, searchText); 
+                WCHAR hSearchBox[256];
+                GetDlgItemText(hWnd, IDC_SEARCH_BOX, hSearchBox, 256);
+                SearchPatientsOrDoctors(hWndListView, hSearchBox);
             }
+            break;
+        case IDC_SEARCH_BUTTON_DOCTOR:
+            WCHAR searchTextDoctor[256];
+            GetDlgItemText(hWnd, IDC_SEARCH_BOX_DOCTOR, searchTextDoctor, 256);
+            SearchDoctors(hWndListLek, searchTextDoctor);
             break;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);

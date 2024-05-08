@@ -6,6 +6,7 @@
 
 #define IDR_MAINFRAME			128
 #define IDD_PRZYCHODNIA_DIALOG	102
+#define IDD_ADD_DOCTOR_DIALOG   97
 #define IDD_ABOUTBOX			103
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
@@ -40,7 +41,17 @@
 #define IDC_EDIT_PATIENT_BUTTON 125
 #define IDC_DOCTOR_EDIT 126
 #define IDC_SEARCH_BOX 99
-#define IDC_SEARCH_BUTTON 127
+#define IDC_SEARCH_BUTTON 98
+#define IDC_SEARCH_BOX_DOCTOR 127
+#define IDC_SEARCH_BUTTON_DOCTOR 128
+#define IDC_EDIT_TEL 200
+#define IDC_EDIT_EM  201
+#define IDC_EDIT_SPE  202
+#define IDC_EDIT_TYT  203
+#define IDC_EDIT_NUM  204
+#define IDC_EDIT_PESEL3 205
+#define IDC_EDIT_SURNAME2 206
+#define IDC_EDIT_NAME1 207
 
 #endif
 // Następne wartości domyślne dla nowych obiektów
