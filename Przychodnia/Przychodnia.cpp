@@ -13,7 +13,7 @@
 #pragma comment(lib, "comctl32.lib")
 
 #define MAX_LOADSTRING 100
-#define IDC_LOAD_DATA_BUTTON 101
+#define IDC_LOAD_DATA_BUTTON 200
 #define IDC_ADD_PATIENT_BUTTON 102
 #define IDC_REMOVE_PATIENT_BUTTON 103
 #define IDC_ADD_DOCTOR_BUTTON 104
@@ -25,6 +25,7 @@
 extern SQLHDBC hDbc;
 SQLHDBC hDbc = NULL;
 HWND hWndListView;
+HWND hWndListLek;
 HINSTANCE hInst;                                // bieżące wystąpienie
 WCHAR szTitle[MAX_LOADSTRING];                  // Tekst paska tytułu
 WCHAR szWindowClass[MAX_LOADSTRING];
@@ -38,41 +39,33 @@ LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-                     _In_opt_ HINSTANCE hPrevInstance,
-                     _In_ LPWSTR    lpCmdLine,
-                     _In_ int       nCmdShow)
+    _In_opt_ HINSTANCE hPrevInstance,
+    _In_ LPWSTR    lpCmdLine,
+    _In_ int       nCmdShow)
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-    
-
-    // Inicjuj ciągi globalne
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
     LoadStringW(hInstance, IDC_PRZYCHODNIA, szWindowClass, MAX_LOADSTRING);
+
     MyRegisterClass(hInstance);
 
-    // Wykonaj inicjowanie aplikacji:
-    if (!InitInstance (hInstance, nCmdShow))
-    {
+    if (!InitInstance(hInstance, nCmdShow)) {
         return FALSE;
     }
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_PRZYCHODNIA));
-
     MSG msg;
 
-    // Główna pętla komunikatów:
-    while (GetMessage(&msg, nullptr, 0, 0))
-    {
-        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-        {
+    while (GetMessage(&msg, nullptr, 0, 0)) {
+        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
     }
 
-    return (int) msg.wParam;
+    return (int)msg.wParam;
 }
 void DodajElementDoListView(HWND hWndListView, int liczbaKolumn, SQLHSTMT hStmt);
 
@@ -90,7 +83,8 @@ void PobierzDaneZBazy(HWND hWndListView) {
     SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
 
     // Nawiązywanie połączenia
-    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=(localdb)\\MSSQLLocalDB;Database=C:\\USERS\\KACPERCUDZIK\\SOURCE\\REPOS\\PRZYCHODNIA\\CLASSLIBRARY\\DATABASE1.MDF;";
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;";
+
     retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
 
     if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
@@ -155,7 +149,8 @@ void InsertPatientData(HWND hDlg, const wchar_t* name, const wchar_t* surname, c
     // Alokuje uchwyt połączenia
     SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
 
-    wchar_t connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=(localdb)\\MSSQLLocalDB;Database=C:\\USERS\\KACPERCUDZIK\\SOURCE\\REPOS\\PRZYCHODNIA\\CLASSLIBRARY\\DATABASE1.MDF;";
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;";
+
     retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
 
     if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
@@ -305,7 +300,7 @@ BOOL DeletePatientFromDatabase(const WCHAR* szID) {
     // Alokuje uchwyt połączenia
     SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
 
-    wchar_t connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=(localdb)\\MSSQLLocalDB;Database=C:\\USERS\\KACPERCUDZIK\\SOURCE\\REPOS\\PRZYCHODNIA\\CLASSLIBRARY\\DATABASE1.MDF;";
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;"; 
     retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
 
     if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
@@ -360,6 +355,30 @@ BOOL DeletePatientFromDatabase(const WCHAR* szID) {
 
     return (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO);
 }
+INT_PTR CALLBACK DoctorsDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+        case IDCANCEL:
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+void SearchPatientsOrDoctors(HWND hWnd, const WCHAR* searchText) {
+    // Tu składaj zapytanie SQL z uwzględnieniem searchText
+    // Na przykład: SELECT * FROM PACJENT WHERE Imie LIKE '%searchText%' OR Nazwisko LIKE '%searchText%' OR PESEL LIKE '%searchText%'
+    // Wykonaj zapytanie i zaktualizuj wyniki w ListView
+}
 
 
 
@@ -368,23 +387,23 @@ BOOL DeletePatientFromDatabase(const WCHAR* szID) {
 //
 //  PRZEZNACZENIE: Rejestruje klasę okna.
 //
-ATOM MyRegisterClass(HINSTANCE hInstance)
-{
+
+ATOM MyRegisterClass(HINSTANCE hInstance) {
     WNDCLASSEXW wcex;
 
     wcex.cbSize = sizeof(WNDCLASSEX);
 
-    wcex.style          = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc    = WndProc;
-    wcex.cbClsExtra     = 0;
-    wcex.cbWndExtra     = 0;
-    wcex.hInstance      = hInstance;
-    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_PRZYCHODNIA));
-    wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
-    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_PRZYCHODNIA);
-    wcex.lpszClassName  = szWindowClass;
-    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.lpfnWndProc = WndProc;
+    wcex.cbClsExtra = 0;
+    wcex.cbWndExtra = 0;
+    wcex.hInstance = hInstance;
+    wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_PRZYCHODNIA));
+    wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_PRZYCHODNIA);
+    wcex.lpszClassName = szWindowClass;
+    wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
     return RegisterClassExW(&wcex);
 }
@@ -416,9 +435,16 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     InitCommonControlsEx(&icex);
 
     hWndListView = CreateWindowExW(0, WC_LISTVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SINGLESEL,
+        WS_CHILD | LVS_REPORT | LVS_SINGLESEL,
         0, 0, 1200, 480, hWnd, (HMENU)IDC_MYLISTVIEW, hInstance, NULL);
     ListView_SetExtendedListViewStyle(hWndListView, LVS_EX_FULLROWSELECT);
+    ShowWindow(hWndListView, SW_HIDE); 
+
+    hWndListLek = CreateWindowExW(0, WC_LISTVIEWW, L"",
+        WS_CHILD | LVS_REPORT | LVS_SINGLESEL,
+        0, 0, 1000, 480, hWnd, (HMENU)IDC_DOCTOR_LIST, hInstance, NULL);
+    ListView_SetExtendedListViewStyle(hWndListLek, LVS_EX_FULLROWSELECT);
+    ShowWindow(hWndListLek, SW_HIDE);
 
     if (!hWndListView) {
         return FALSE;
@@ -494,18 +520,111 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     lvColumn.cx = 100;
     ListView_InsertColumn(hWndListView, 10, &lvColumn);
 
+    // Kolumna 0 LEK
+    wchar_t IDj[] = L"ID";
+    lvColumn.pszText = ID;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListLek, 0, &lvColumn);
+
+    // Kolumna 1 LEK
+    wchar_t imiej[] = L"Imię";
+    lvColumn.pszText = imie;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListLek, 1, &lvColumn);
+
+    // Kolumna 2 LEK
+    wchar_t nazwiskoj[] = L"Nazwisko";
+    lvColumn.pszText = nazwisko;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListLek, 2, &lvColumn);
+
+    // Kolumna 3 LEK
+    wchar_t peselj[] = L"PESEL";
+    lvColumn.pszText = pesel;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListLek, 3, &lvColumn);
+
+    // Kolumna 4
+    wchar_t numerPWZ[] = L"Numer PWZ";
+    lvColumn.pszText = numerPWZ;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListLek, 4, &lvColumn);
+
+    // Kolumna 5
+    wchar_t TYTUL[] = L"Tytuł";
+    lvColumn.pszText = TYTUL;
+    lvColumn.cx = 200;
+    ListView_InsertColumn(hWndListLek, 5, &lvColumn);
+
+    // Kolumna 6
+    wchar_t Spec[] = L"Specjalizacja";
+    lvColumn.pszText = Spec;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListLek, 6, &lvColumn);
+
+    // Kolumna 7
+    wchar_t Ema[] = L"Email";
+    lvColumn.pszText = Ema;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListLek, 7, &lvColumn);
+
+    // Kolumna 8
+    wchar_t Tel[] = L"Telefon";
+    lvColumn.pszText = Tel;
+    lvColumn.cx = 100;
+    ListView_InsertColumn(hWndListLek, 8, &lvColumn);
+
+
     HWND hBtnLoadData = CreateWindow(L"BUTTON", L"Wczytaj dane",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
         10, 500, 125, 25,  
         hWnd, (HMENU)IDC_LOAD_DATA_BUTTON, hInstance, NULL);
+    ShowWindow(hBtnLoadData, SW_HIDE); 
     HWND hBtnLoad = CreateWindow(L"BUTTON", L"Dodaj Pacjenta",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-        255, 500, 125, 25,
+        260, 500, 125, 25,
         hWnd, (HMENU)IDC_ADD_PATIENT_BUTTON, hInstance, NULL);
+    ShowWindow(hBtnLoad, SW_HIDE);
     HWND hBtn = CreateWindow(L"BUTTON", L"Usuń Pacjenta",
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
         135, 500, 125, 25,
         hWnd, (HMENU)IDC_REMOVE_PATIENT_BUTTON, hInstance, NULL);
+    ShowWindow(hBtn, SW_HIDE);
+    HWND hBtnpcjentedit = CreateWindow(L"BUTTON", L"Edytuj Pacjenta",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        379, 500, 125, 25,
+        hWnd, (HMENU)IDC_EDIT_PATIENT_BUTTON, hInstance, NULL);
+    ShowWindow(hBtnpcjentedit, SW_HIDE);
+    HWND hDoctorLoad = CreateWindow(L"BUTTON", L"Wczytaj dane",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        10, 500, 125, 25,
+        hWnd, (HMENU)IDC_DOCTOR_LOAD, hInstance, NULL);
+    ShowWindow(hDoctorLoad, SW_HIDE);
+    HWND hDoctorAdd = CreateWindow(L"BUTTON", L"Dodaj Lekarza",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        255, 500, 125, 25,
+        hWnd, (HMENU)IDC_DOCTOR_ADD, hInstance, NULL);
+    ShowWindow(hDoctorAdd, SW_HIDE);
+    HWND hDoctorDelete = CreateWindow(L"BUTTON", L"Usuń Lekarza",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        135, 500, 125, 25,
+        hWnd, (HMENU)IDC_DOCTOR_DELETE, hInstance, NULL);
+    ShowWindow(hDoctorDelete, SW_HIDE);
+    HWND hDoctorEdit = CreateWindow(L"BUTTON", L"Usuń Lekarza",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        135, 500, 125, 25,
+        hWnd, (HMENU)IDC_DOCTOR_EDIT, hInstance, NULL);
+    ShowWindow(hDoctorDelete, SW_HIDE);
+    HWND hSearchBox = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_LEFT | WS_BORDER | ES_AUTOHSCROLL,
+        700, 10, 150, 20, hWnd, (HMENU)IDC_SEARCH_BOX, hInstance, NULL);
+
+    HWND hSearchButton = CreateWindow(L"BUTTON", L"Szukaj",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        860, 10, 50, 20, hWnd, (HMENU)IDC_SEARCH_BUTTON, hInstance, NULL);
+    
+
+
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
 
@@ -540,6 +659,45 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         case IDC_REMOVE_PATIENT_BUTTON:
             RemoveSelectedPatient(hWndListView);
+            break;
+        case IDM_ABOUT:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+            break;
+        case IDM_EXIT:
+            DestroyWindow(hWnd);
+            break;
+        case IDM_LEK:  
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_ADD), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_DELETE), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_LIST), SW_SHOW); 
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_LOAD), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_LOAD_DATA_BUTTON), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_REMOVE_PATIENT_BUTTON), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_ADD_PATIENT_BUTTON), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_MYLISTVIEW), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_EDIT_PATIENT_BUTTON), SW_HIDE);
+            break;
+        case IDM_WIZ:
+            break;
+        case IDM_PAC:
+            ShowWindow(GetDlgItem(hWnd, IDC_LOAD_DATA_BUTTON), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_REMOVE_PATIENT_BUTTON), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_ADD_PATIENT_BUTTON), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_MYLISTVIEW), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_ADD), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_DELETE), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_LIST), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_LOAD), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_EDIT_PATIENT_BUTTON), SW_SHOW);
+            break;
+        case IDM_HAR:
+            break;
+        case WM_COMMAND:
+            if (LOWORD(wParam) == IDC_SEARCH_BUTTON) {
+                WCHAR searchText[256];
+                GetDlgItemText(hWnd, IDC_SEARCH_BOX, searchText, 256);
+                SearchPatientsOrDoctors(hWndListView, searchText); 
+            }
             break;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);

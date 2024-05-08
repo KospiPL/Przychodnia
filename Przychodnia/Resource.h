@@ -9,6 +9,10 @@
 #define IDD_ABOUTBOX			103
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
+#define IDM_LEK                 113
+#define IDM_PAC                 114
+#define IDM_HAR                 115
+#define IDM_WIZ                 116
 #define IDI_PRZYCHODNIA			107
 #define IDI_SMALL				108
 #define IDC_PRZYCHODNIA			109
@@ -27,6 +31,16 @@
 #define IDC_EDIT_WEIGHT 110
 #define IDC_EDIT_HEIGHT 111
 #define IDC_EDIT_NFZ 112
+#define IDD_DOCTORS_DIALOG 120
+#define IDC_LIST_DOCTORS 1010
+#define IDC_DOCTOR_LIST 121
+#define IDC_DOCTOR_LOAD 122
+#define IDC_DOCTOR_ADD 123
+#define IDC_DOCTOR_DELETE 124
+#define IDC_EDIT_PATIENT_BUTTON 125
+#define IDC_DOCTOR_EDIT 126
+#define IDC_SEARCH_BOX 99
+#define IDC_SEARCH_BUTTON 127
 
 #endif
 // Następne wartości domyślne dla nowych obiektów
