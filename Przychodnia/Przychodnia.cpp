@@ -1108,7 +1108,98 @@ int CALLBACK CompareFunc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort) {
 //// Harmonogram pracy lekarzy
 ////
 
+void DodajElementDo(HWND hWndListHarm, int liczbaKolumn, SQLHSTMT hStmt) {
+    LVITEM lvItem;
+    wchar_t buforTekstu[256];
+    SQLWCHAR buforDanych[256];
+    SQLLEN dlugoscDanych;
 
+    int indexWiersza = 0;
+    while (SQLFetch(hStmt) == SQL_SUCCESS) {
+        for (int i = 1; i <= liczbaKolumn; i++) { // Indeksowanie kolumn zaczyna się od 1
+            SQLGetData(hStmt, i, SQL_C_WCHAR, buforDanych, sizeof(buforDanych), &dlugoscDanych);
+            wsprintf(buforTekstu, L"%s", buforDanych);
+
+            lvItem = { 0 };
+            lvItem.mask = LVIF_TEXT;
+            lvItem.iItem = indexWiersza;
+            lvItem.iSubItem = i - 1;
+            lvItem.pszText = buforTekstu;
+
+            if (i == 1) {
+                // Wstawia nowy wiersz
+                ListView_InsertItem(hWndListHarm, &lvItem);
+            }
+            else {
+                // Uzupełnia wiersz o kolejne kolumny
+                ListView_SetItemText(hWndListHarm, indexWiersza, i - 1, lvItem.pszText);
+            }
+        }
+        indexWiersza++;
+    }
+}
+void PobierzHarmonogramZBazy(HWND hWndListHarm) {
+    SQLHENV hEnv = NULL;
+    SQLHDBC hDbc = NULL;
+    SQLHSTMT hStmt = NULL;
+    SQLRETURN retcode;
+
+    // Inicjalizacja środowiska ODBC
+    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+    SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+
+    // Alokuje uchwyt połączenia
+    SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+    // Nawiązywanie połączenia
+    SQLWCHAR connectionString[] = L"Driver={ODBC Driver 17 for SQL Server};Server=d-w-c.database.windows.net;Database=przychodnia;UID=Kopsi;PWD=Aslanxd12.;";
+
+    retcode = SQLDriverConnectW(hDbc, NULL, connectionString, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+
+    if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+        // Alokuje uchwyt zapytania
+        SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+
+        // Wykonuje zapytanie SQL
+        SQLWCHAR sqlQuery[] = L"SELECT h.Dzien, h.GodzinaRozpoczecia, h.GodzinaZakonczenia, l.Imie, l.Nazwisko FROM Harmonogram h JOIN Lekarz l ON h.LekarzID = l.ID;";
+        retcode = SQLExecDirectW(hStmt, sqlQuery, SQL_NTS);
+
+        if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+            SQLSMALLINT liczbaKolumn = 0;
+            // Pobiera liczbę kolumn w wyniku zapytania
+            SQLNumResultCols(hStmt, &liczbaKolumn);
+
+            // Ładuje dane do ListView
+            DodajElementDo(hWndListHarm, liczbaKolumn, hStmt);
+        }
+        else {
+            // Obsługa błędów zapytania
+            SQLWCHAR sqlState[1024];
+            SQLWCHAR messageText[1024];
+            SQLSMALLINT i = 0, textLengthPtr;
+            SQLINTEGER nativeError;
+            SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, ++i, sqlState, &nativeError, messageText, sizeof(messageText) / sizeof(WCHAR), &textLengthPtr);
+            wprintf(L"SQL Error: %s - %s\n", sqlState, messageText);
+        }
+    }
+    else {
+        // Obsługa błędów połączenia
+        SQLWCHAR sqlState[1024];
+        SQLWCHAR messageText[1024];
+        SQLSMALLINT i = 0, textLengthPtr;
+        SQLINTEGER nativeError;
+        SQLGetDiagRec(SQL_HANDLE_DBC, hDbc, ++i, sqlState, &nativeError, messageText, sizeof(messageText) / sizeof(WCHAR), &textLengthPtr);
+        wprintf(L"SQL Error: %s - %s\n", sqlState, messageText);
+
+        // Zwalnianie zasobów
+        if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+        if (hDbc) {
+            SQLDisconnect(hDbc);
+            SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+        }
+        if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+    }
+}
 //
 //  FUNKCJA: MyRegisterClass()
 //
