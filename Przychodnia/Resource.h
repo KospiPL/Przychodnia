@@ -9,6 +9,7 @@
 #define IDD_ADD_DOCTOR_DIALOG   97
 #define IDD_EDIT_PATIENT_DIALOG 96
 #define IDD_EDIT_DOCTOR_DIALOG  95
+#define IDC_HARMONOGRAM_LISTVIEW 94
 #define IDD_ABOUTBOX			103
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
@@ -54,6 +55,10 @@
 #define IDC_EDIT_PESEL3 205
 #define IDC_EDIT_SURNAME2 206
 #define IDC_EDIT_NAME1 207
+#define IDC_HAR_LOAD 208
+#define IDC_HAR_DELETE 209
+#define IDC_HAR_ADD 210
+#define IDC_HAR_EDIT 211
 
 #endif
 // Następne wartości domyślne dla nowych obiektów

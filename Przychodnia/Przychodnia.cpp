@@ -26,6 +26,7 @@ extern SQLHDBC hDbc;
 SQLHDBC hDbc = NULL;
 HWND hWndListView;
 HWND hWndListLek;
+HWND hWndListHarm;
 HINSTANCE hInst;                                // bieżące wystąpienie
 WCHAR szTitle[MAX_LOADSTRING];                  // Tekst paska tytułu
 WCHAR szWindowClass[MAX_LOADSTRING];
@@ -1080,6 +1081,32 @@ void OpenEditDoctorDialog(HWND hWnd) {
 ////
 ////
 //////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+/// Sortowanie kolumn 
+typedef struct {
+    HWND hwndList;        // Uchwyt do kontrolki ListView
+    int iSortColumn;      // Numer kolumny, po której sortujemy
+    BOOL bSortAscending;  // Flaga określająca kierunek sortowania
+} SORTINFO;
+int CALLBACK CompareFunc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort) {
+    SORTINFO* sortInfo = (SORTINFO*)lParamSort;
+    HWND hwndList = sortInfo->hwndList;
+    int iSortColumn = sortInfo->iSortColumn;
+    BOOL bSortAscending = sortInfo->bSortAscending;
+
+    WCHAR szText1[256], szText2[256];
+    ListView_GetItemText(hwndList, lParam1, iSortColumn, szText1, sizeof(szText1));
+    ListView_GetItemText(hwndList, lParam2, iSortColumn, szText2, sizeof(szText2));
+
+    int iResult = wcscmp(szText1, szText2);
+    if (!bSortAscending) iResult = -iResult;
+
+    return iResult;
+}
+//////////////////////////////////////////////////////////////////////////////
+////
+//// Harmonogram pracy lekarzy
+////
 
 
 //
@@ -1145,6 +1172,12 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
         0, 0, 1000, 480, hWnd, (HMENU)IDC_DOCTOR_LIST, hInstance, NULL);
     ListView_SetExtendedListViewStyle(hWndListLek, LVS_EX_FULLROWSELECT);
     ShowWindow(hWndListLek, SW_HIDE);
+    
+    hWndListHarm = CreateWindowExW(0, WC_LISTVIEWW, L"",
+        WS_CHILD | LVS_REPORT | LVS_SINGLESEL,
+        0, 0, 1000, 480, hWnd, (HMENU)IDC_HARMONOGRAM_LISTVIEW, hInstance, NULL);
+    ListView_SetExtendedListViewStyle(hWndListHarm, LVS_EX_FULLROWSELECT);
+    ShowWindow(hWndListHarm, SW_HIDE);
 
     if (!hWndListView) {
         return FALSE;
@@ -1153,6 +1186,39 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     LVCOLUMN lvColumn;
     ZeroMemory(&lvColumn, sizeof(lvColumn));
     lvColumn.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+
+    // Tworzenie kolumn dla ListView
+    LVCOLUMN lvCol;
+    ZeroMemory(&lvCol, sizeof(lvCol));
+    lvCol.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+
+    // Kolumna "Dzień"
+    wchar_t dayColumn[] = L"Dzień";  
+    lvCol.pszText = dayColumn;  
+    lvCol.cx = 200;  // Szerokość kolumny w pikselach
+    ListView_InsertColumn(hWndListHarm, 0, &lvCol);
+
+    // Kolumna "Godzina Rozpoczęcia"
+    wchar_t startColumn[] = L"Godzina Rozpoczęcia";
+    lvCol.pszText = startColumn;
+    lvCol.cx = 200;
+    ListView_InsertColumn(hWndListHarm, 1, &lvCol);
+
+    // Kolumna "Godzina Zakończenia"
+    wchar_t endColumn[] = L"Godzina Zakończenia";
+    lvCol.pszText = endColumn;
+    lvCol.cx = 200;
+    ListView_InsertColumn(hWndListHarm, 2, &lvCol);
+
+    wchar_t imeilek[] = L"Imie Lekarza";
+    lvCol.pszText = imeilek;
+    lvCol.cx = 200;
+    ListView_InsertColumn(hWndListHarm, 3, &lvCol);
+
+    wchar_t nazlek[] = L"Nazwisko Lekarza";
+    lvCol.pszText = nazlek;
+    lvCol.cx = 200;
+    ListView_InsertColumn(hWndListHarm, 4, &lvCol);
 
     // Kolumna 0
     wchar_t ID[] = L"ID";
@@ -1331,6 +1397,27 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
         1250, 0, 110, 30, hWnd, (HMENU)IDC_SEARCH_BUTTON_DOCTOR, hInstance, NULL);
     ShowWindow(hSearchButtonDoctor, SW_HIDE);
+    HWND hHarLoad = CreateWindow(L"BUTTON", L"Wczytaj dane",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        10, 500, 125, 25,
+        hWnd, (HMENU)IDC_HAR_LOAD, hInstance, NULL);
+    ShowWindow(hHarLoad, SW_HIDE);
+    HWND hHarrAdd = CreateWindow(L"BUTTON", L"Dodaj wpis pracy",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        260, 500, 125, 25,
+        hWnd, (HMENU)IDC_HAR_ADD, hInstance, NULL);
+    ShowWindow(hHarrAdd, SW_HIDE);
+    HWND hHarDelete = CreateWindow(L"BUTTON", L"Usuń wpis pracy",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        379, 500, 125, 25,
+        hWnd, (HMENU)IDC_HAR_DELETE, hInstance, NULL);
+    ShowWindow(hHarDelete, SW_HIDE);
+    HWND hHarEdit = CreateWindow(L"BUTTON", L"Edytuj wpis pracy",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        135, 500, 125, 25,
+        hWnd, (HMENU)IDC_HAR_EDIT, hInst, NULL);
+    ShowWindow(hHarEdit, SW_HIDE);
+
 
 
     ShowWindow(hWnd, nCmdShow);
@@ -1353,6 +1440,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
+    case WM_NOTIFY:
+    {
+        LPNMHDR lpnmh = (LPNMHDR)lParam;
+        if (lpnmh->hwndFrom == hWndListView || lpnmh->hwndFrom == hWndListLek)
+        {
+            switch (lpnmh->code)
+            {
+            case LVN_COLUMNCLICK:
+            {
+                NMLISTVIEW* pnmv = (NMLISTVIEW*)lParam;
+                SORTINFO sortInfo;
+                sortInfo.hwndList = lpnmh->hwndFrom;
+                sortInfo.iSortColumn = pnmv->iSubItem;
+                static BOOL bSortAscending = TRUE;
+                bSortAscending = !bSortAscending;
+                sortInfo.bSortAscending = bSortAscending;
+
+                ListView_SortItemsEx(sortInfo.hwndList, CompareFunc, &sortInfo);
+            }
+            break;
+            }
+        }
+    }
+    break;
     case WM_COMMAND:
     {
         int wmId = LOWORD(wParam);
@@ -1405,6 +1516,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BOX), SW_HIDE);
             ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BUTTON_DOCTOR), SW_SHOW);
             ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BOX_DOCTOR), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_HAR_DELETE), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_HAR_ADD), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_HAR_EDIT), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_HARMONOGRAM_LISTVIEW), SW_HIDE);
             break;
         case IDM_WIZ:
             break;
@@ -1423,8 +1538,34 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BOX), SW_SHOW);
             ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BUTTON_DOCTOR), SW_HIDE);
             ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BOX_DOCTOR), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_HAR_LOAD), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_HAR_DELETE), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_HAR_ADD), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_HAR_EDIT), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_HARMONOGRAM_LISTVIEW), SW_HIDE);
             break;
-        case IDM_HAR:
+        case IDM_HAR:           
+            ShowWindow(GetDlgItem(hWnd, IDC_HARMONOGRAM_LISTVIEW), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_HAR_LOAD), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_HAR_DELETE), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_HAR_ADD), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_HAR_EDIT), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_LIST), SW_SHOW);
+            ShowWindow(GetDlgItem(hWnd, IDC_LOAD_DATA_BUTTON), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_REMOVE_PATIENT_BUTTON), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_ADD_PATIENT_BUTTON), SW_HIDE); 
+            ShowWindow(GetDlgItem(hWnd, IDC_MYLISTVIEW), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_ADD), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_DELETE), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_EDIT), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_LIST), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_DOCTOR_LOAD), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_EDIT_PATIENT_BUTTON), SW_HIDE); 
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BUTTON), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BOX), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BUTTON_DOCTOR), SW_HIDE);
+            ShowWindow(GetDlgItem(hWnd, IDC_SEARCH_BOX_DOCTOR), SW_HIDE);
+
             break;
         case IDC_SEARCH_BUTTON: 
             if (LOWORD(wParam) == IDC_SEARCH_BUTTON) {
