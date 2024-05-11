@@ -1164,7 +1164,7 @@ void PobierzHarmonogramZBazy(HWND hWndListHarm) {
         SQLWCHAR sqlQuery[] = L"SELECT h.Dzien, h.GodzinaRozpoczecia, h.GodzinaZakonczenia, l.Imie, l.Nazwisko FROM Harmonogram h JOIN Lekarz l ON h.LekarzID = l.ID;";
         retcode = SQLExecDirectW(hStmt, sqlQuery, SQL_NTS);
 
-        if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {
+        if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) { 
             SQLSMALLINT liczbaKolumn = 0;
             // Pobiera liczbę kolumn w wyniku zapytania
             SQLNumResultCols(hStmt, &liczbaKolumn);
@@ -1199,6 +1199,39 @@ void PobierzHarmonogramZBazy(HWND hWndListHarm) {
         }
         if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
     }
+}
+void OpenEditHarmonogramDialog(HWND hWnd) {
+    int iSelected = ListView_GetNextItem(hWndListView, -1, LVNI_SELECTED);
+    if (iSelected == -1) {
+        MessageBox(NULL, L"Proszę wybrać pacjenta do edycji.", L"Błąd", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    // Pobierz ID pacjenta
+    wchar_t szID[256];
+    ListView_GetItemText(hWndListHarm, iSelected, 0, szID, sizeof(szID));
+
+    // Otwórz okno dialogowe do edycji
+    DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_EDIT_SCHEDULE_DIALOG), hWnd, EditPatientDialogProc, (LPARAM)szID);
+}
+INT_PTR CALLBACK EditScheduleDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+    case WM_INITDIALOG:
+        // Wczytanie danych do kontrolek
+        return (INT_PTR)TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK) {
+            // Zapisz zmiany
+            EndDialog(hDlg, IDOK);
+            return (INT_PTR)TRUE;
+        }
+        else if (LOWORD(wParam) == IDCANCEL) {
+            EndDialog(hDlg, IDCANCEL);
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
 }
 //
 //  FUNKCJA: MyRegisterClass()

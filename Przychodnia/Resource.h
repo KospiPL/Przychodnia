@@ -10,6 +10,7 @@
 #define IDD_EDIT_PATIENT_DIALOG 96
 #define IDD_EDIT_DOCTOR_DIALOG  95
 #define IDC_HARMONOGRAM_LISTVIEW 94
+#define IDD_EDIT_SCHEDULE_DIALOG 93
 #define IDD_ABOUTBOX			103
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
@@ -17,6 +18,11 @@
 #define IDM_PAC                 114
 #define IDM_HAR                 115
 #define IDM_WIZ                 116
+#define IDC_EDIT_DAY 212
+#define IDC_EDIT_START 213
+#define IDC_EDIT_END 214
+#define IDC_EDIT_DOCTOR_NAME 215
+#define IDC_EDIT_DOCTOR_SURNAME 216
 #define IDI_PRZYCHODNIA			107
 #define IDI_SMALL				108
 #define IDC_PRZYCHODNIA			109
