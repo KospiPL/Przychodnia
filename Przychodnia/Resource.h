@@ -11,6 +11,8 @@
 #define IDD_EDIT_DOCTOR_DIALOG  95
 #define IDC_HARMONOGRAM_LISTVIEW 94
 #define IDD_EDIT_SCHEDULE_DIALOG 93
+#define IDD_EDIT_VISIT_DIALOG 87
+#define IDD_ADD_VISIT_DIALOG 88
 #define IDD_ABOUTBOX			103
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
@@ -65,6 +67,29 @@
 #define IDC_HAR_DELETE 209
 #define IDC_HAR_ADD 210
 #define IDC_HAR_EDIT 211
+#define IDC_ADD_VISIT_BUTTON 212
+#define IDC_EDIT_PATIENT_ID         2000
+#define IDC_EDIT_DOCTOR_ID          2001
+#define IDC_EDIT_DATE               2002
+#define IDC_EDIT_TIME               2003
+#define IDC_EDIT_STATUS             2004
+#define IDC_ADD_VISIT_BUTTON        2005
+#define IDC_VISIT_LOAD_BUTTON 2131
+#define IDC_VISIT_ADD_BUTTON 213
+#define IDC_VISIT_DELETE_BUTTON 8998
+#define IDC_VISIT_EDIT_BUTTON 6565
+#define IDC_PATIENT_LIST 214
+#define IDC_DOCTOR_LIST 215
+#define IDC_COMBO_STATUS 216
+#define IDC_EDIT_VISIT_ID 217
+#define IDC_EDIT_DOCTOR 218
+#define IDC_EDIT_PATIENT 219
+#define IDC_EDIT_PATIENT       1001
+#define IDC_EDIT_DOCTOR        1002
+#define IDC_EDIT_DATE          1003
+#define IDC_EDIT_TIME          1004
+#define IDC_EDIT_STATUS        1005
+
 
 #endif
 // Następne wartości domyślne dla nowych obiektów

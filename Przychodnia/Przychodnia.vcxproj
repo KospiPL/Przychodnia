@@ -136,11 +136,11 @@
     <ClCompile Include="Przychodnia.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Przychodnia.rc" />
-  </ItemGroup>
-  <ItemGroup>
     <Image Include="Przychodnia.ico" />
     <Image Include="small.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Przychodnia.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
